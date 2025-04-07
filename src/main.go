@@ -72,7 +72,7 @@ func isThrottlingError(err error) bool {
 		return false
 	}
 
-	return strings.Contains(err.Error(), "40613")
+	return strings.Contains(err.Error(), "is not currently available.  Please retry the connection later")
 }
 
 // Add 10% timing jitter to a time.Duration
@@ -169,7 +169,7 @@ func main() {
 		why := `Connect to awaken a paused Azure DB.
 
   Provide connection details to connect. All environment variable name start with WAKEUP_<option_name>.
-  Command line options passed have higher priority. The DSN option always overrides any and all other values.`
+  Command line arguments have higher priority. The DSN option always overrides any and all other values.`
 
 		fmt.Println(why)
 		flag.Usage()
@@ -178,7 +178,7 @@ func main() {
 	}
 
 	connectionString := *dsn
-	// If no DSN provided, try to build from environment variables
+	// If no DSN provided, try to build from environment variables and passed arguments
 	if connectionString == "" {
 		connectionString = BuildDSN(*server, *port, *instance, *database, *user, *password, *dsn)
 	}
@@ -188,13 +188,13 @@ func main() {
 	}
 
 	if connectionString == "" || strings.HasPrefix(connectionString, "sqlserver://:@:1433?") {
-		log.Fatal("Error: no connection string provided via --dsn flag or environment variables")
+		log.Fatal("error: no connection string provided via --dsn flag or environment variables")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Actually connect to the database
+	// Actually make the connection with the database
 	conn, err := ThrottledRetry(ctx,
 		func() (*sql.DB, error) {
 			return ConnectAndPing(connectionString)
