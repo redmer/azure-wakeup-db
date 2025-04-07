@@ -92,16 +92,10 @@ func addJitter(delay time.Duration) time.Duration {
 	return delay + jitter
 }
 
-// Continuously retry with exponential backoff until the maximum number of retries is reached.
+// Continuously retry to connect until the maximum number of retries is reached.
 func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, error) {
-	maxRetries := 6
-	// 1: wait 0 sec
-	// 2: wait 12 sec = cumulatively 12
-	// 3: wait 24 sec = cumulatively 36
-	// 4: wait 48 sec = cumulatively 84
-	// 5: wait 96 sec = cumulatively 145
-	// 6: wait 192 sec = cumulatively 237
-	retryDelay := time.Duration(12) * time.Second
+	maxRetries := 15
+	retryDelay := time.Duration(25) * time.Second
 	var lastErr error
 
 	for attempt := range maxRetries {
@@ -110,11 +104,13 @@ func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, 
 			return nil, ctx.Err()
 		default:
 			if attempt > 0 {
-				log.Printf("Retry attempt %d/%d after %v delay", attempt+1, maxRetries, retryDelay)
+				log.Printf("Attempt %d/%d after %v delay", attempt+1, maxRetries, retryDelay)
 				time.Sleep(addJitter(retryDelay))
+			} else {
+				log.Printf("Attempt 1/%d", maxRetries)
 			}
 
-			db, err := connectWithString(connString)
+			db, err := ConnectAndPing(connString)
 			if err == nil { // success
 				return db, nil
 			}
@@ -123,8 +119,6 @@ func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, 
 			if !isThrottlingError(err) { // not throttling error
 				return nil, err
 			}
-
-			retryDelay *= 2
 		}
 	}
 
@@ -132,7 +126,7 @@ func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, 
 }
 
 // Return a working sql.DB connection based on a connection string
-func connectWithString(connString string) (*sql.DB, error) {
+func ConnectAndPing(connString string) (*sql.DB, error) {
 	db, err := sql.Open("sqlserver", connString)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
@@ -192,22 +186,20 @@ func main() {
 	}
 
 	if *verbose {
-		fmt.Printf("Connecting with '%v'.", connectionString)
+		log.Printf("Connecting with '%v'.\n", connectionString)
 	}
 
 	if connectionString == "" || strings.HasPrefix(connectionString, "sqlserver://:@:1433?") {
-		fmt.Println("Error: no connection string provided via --dsn flag or environment variables")
-		os.Exit(1)
+		log.Fatal("Error: no connection string provided via --dsn flag or environment variables")
 	}
 
-	// Actually connect to the database
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	// Actually connect to the database
 	conn, err := retryWithThrottlingError(ctx, connectionString)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		log.Fatalf("%v\n", err)
 	}
 	defer conn.Close()
 
