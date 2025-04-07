@@ -42,3 +42,12 @@ Options:
     - `WAKEUP_PASSWORD`: Database password
 
 [microsoft/go-mssqldb]: https://github.com/microsoft/go-mssqldb/blob/main/README.md#the-connection-string-can-be-specified-in-one-of-three-formats
+
+## FAQ
+
+- **PR's are welcome**
+- **Why in Go?**
+  - Because I wanted to try and write a small application in Go.
+- **What would be a good PR?**
+  - Other ways to authenticate
+  - Combine DSN and named options.
