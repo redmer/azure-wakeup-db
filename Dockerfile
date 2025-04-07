@@ -1,26 +1,17 @@
 # Build stage
 FROM golang:alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
-
-# Copy source code
 COPY . .
 
-# Build the application
-RUN go build -o main .
+RUN go build -o azure-wakeup-db ./src
 
 # Run stage
 FROM scratch
+COPY --from=builder /app/azure-wakeup-db .
 
-# Copy binary from builder
-COPY --from=builder /app/main .
-
-# Run the application
-CMD ["./main"]
+CMD ["./azure-wakeup-db"]
