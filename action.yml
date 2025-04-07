@@ -1,21 +1,21 @@
 name: "Wakeup Azure DB"
-description: "Wakeup a sleeping Azure database"
+description: "Wakeup a sleeping (auto-paused) Azure database"
 inputs:
   server:
-    description: "Server name for the database"
+    description: "Database server name"
   port:
-    description: "Port for the database (default: 1433)"
+    description: "Database server port (default: 1433)"
   instance:
-    description: "Instance name for the database (optional)"
+    description: "Instance name (optional)"
   database:
     description: "Database name (optional)"
   user:
-    description: "Username for the database"
+    description: "SQL username"
   password:
-    description: "Password for the database"
+    description: "SQL password"
   dsn:
     description: >
-      Database connection string of the database.
+      Connection string.
       Incompatible with server, port, instance, database, user, and password inputs.
       Provide either a DSN or separate server, port, instance, database, user, and password values.
 
