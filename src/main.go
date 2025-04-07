@@ -82,10 +82,8 @@ func addJitter(delay time.Duration) time.Duration {
 }
 
 // With pauses, Retry to connect until the maximum number of retries is reached.
-func ThrottledRetry[T any](ctx context.Context, connectFunc func() (T, error)) (T, error) {
+func ThrottledRetry[T any](ctx context.Context, closure func() (T, error), maxRetries int, retryDelay time.Duration) (T, error) {
 	var zeroValue T
-	maxRetries := 15
-	retryDelay := time.Duration(25) * time.Second
 	var lastErr error
 
 	for attempt := range maxRetries {
@@ -100,7 +98,7 @@ func ThrottledRetry[T any](ctx context.Context, connectFunc func() (T, error)) (
 				log.Printf("attempt 1/%d", maxRetries)
 			}
 
-			result, err := connectFunc()
+			result, err := closure()
 			if err == nil { // success
 				return result, nil
 			}
@@ -195,10 +193,14 @@ func main() {
 	defer cancel()
 
 	// Actually make the connection with the database
-	conn, err := ThrottledRetry(ctx,
+	conn, err := ThrottledRetry(
+		ctx,
 		func() (*sql.DB, error) {
 			return ConnectAndPing(connectionString)
-		})
+		},
+		15,
+		time.Duration(25)*time.Second,
+	)
 	if err != nil {
 		log.Fatalln(err)
 	}
