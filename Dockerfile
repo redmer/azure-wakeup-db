@@ -12,6 +12,6 @@ RUN go build -o azure-wakeup-db ./src
 
 # Run stage
 FROM scratch
-COPY --from=builder /app/azure-wakeup-db .
+COPY --chmod=777 --from=builder /app/azure-wakeup-db .
 
-CMD ["./azure-wakeup-db"]
+ENTRYPOINT ["./azure-wakeup-db"]
