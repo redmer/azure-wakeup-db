@@ -1,11 +1,16 @@
 # azure-wakeup-db
 
-If your Azure DB returns 40613 because it was paused, this GitHub action re-awakens it. Useful for workflows or ETL's that would otherwise quickly fail.
+If your Azure (MSSQL) DB automatically pauses, `ghcr.io/redmer/azure-wakeup-db` re-awakens them.
+That may be useful for workflows or ETL's that would otherwise quickly fail.
+
+The error you might see is error `40613` or something like:
+
+> `mssql: login error: Database '***' on server '***.database.windows.net' is not currently available.  Please retry the connection later.  If the problem persists, contact customer support, and provide them the session tracing ID of '***'.`
 
 ## Usage
 
 ```
-docker run --rm ghcr.io/redmer/azure-wake-up-db --dsn <dsn>
+docker run --rm ghcr.io/redmer/azure-wakeup-db --dsn <dsn>
 ```
 
 Options:
@@ -14,7 +19,8 @@ Options:
   - `sqlserver://username:password@host/instance`
   - `server=localhost;user id=sa;database=master;app name=MyAppName`
   - `odbc:server=localhost;user id=sa;password={foo;bar}`
-- Or use the following specific options. They _will not_ be combined with DSN.
+- Or use the following specific options. They will **not** be combined with the DSN.
+
   - `--server`: Database host
   - `--port`: Database port (default: 1433)
   - `--instance`: SQL Server instance name (optional)
@@ -26,14 +32,13 @@ Options:
   Kerberos or EntraID is not supported.
 
 - Environment variables:
-  - `WAKEUP_DSN`: Full DSN
-  - Or use the following specific options. They _will not_ be combined with DSN.
+  - `WAKEUP_DSN`: Full DSN in any of the above syntaxes.
+  - Or use the following specific options. They will **not** be combined with the DSN.
     - `WAKEUP_SERVER`: Database host
     - `WAKEUP_DATABASE`: Database name
     - `WAKEUP_PORT`: Database port (default: 1433)
     - `WAKEUP_INSTANCE`: SQL Server instance name (optional)
     - `WAKEUP_USER`: Database username
     - `WAKEUP_PASSWORD`: Database password
-
 
 [microsoft/go-mssqldb]: https://github.com/microsoft/go-mssqldb/blob/main/README.md#the-connection-string-can-be-specified-in-one-of-three-formats
