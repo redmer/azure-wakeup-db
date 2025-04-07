@@ -1,4 +1,3 @@
-# action.yml
 name: "Wakeup Azure DB"
 description: "Wakeup a sleeping Azure database"
 inputs:
@@ -23,8 +22,14 @@ inputs:
 runs:
   using: docker
   image: ghcr.io/redmer/azure-wakeup-db
-  args:
-    - ${{ inputs.who-to-greet }}
+  env:
+    WAKEUP_SERVER: ${{ inputs.server }}
+    WAKEUP_PORT: ${{ inputs.port }}
+    WAKEUP_INSTANCE: ${{ inputs.instance }}
+    WAKEUP_DATABASE: ${{ inputs.database }}
+    WAKEUP_USER: ${{ inputs.user }}
+    WAKEUP_PASSWORD: ${{ inputs.password }}
+    WAKEUP_DSN: ${{ inputs.dsn }}
 
 branding:
   icon: sunrise
