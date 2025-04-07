@@ -42,14 +42,22 @@ func main() {
 	flag.Parse()
 
 	if *help || *dsn == "" {
+		examples := `
+Connection string examples:
+  --dsn 'sqlserver://username:password@host/instance'
+  --dsn 'server=localhost;user id=sa;database=master;app name=MyAppName'
+  --dsn 'odbc:server=localhost;user id=sa;password={foo;bar}'
+
+  All variants described at <https://github.com/microsoft/go-mssqldb/blob/main/README.md#the-connection-string-can-be-specified-in-one-of-three-formats>")`
 		flag.Usage()
+		fmt.Println(examples)
 		os.Exit(0)
 	}
 
 	// Example 1: Using connection string
 	conn, err := connectWithString(*dsn)
 	if err != nil {
-		fmt.Printf("Error connecting to database: %v\n", err)
+		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 	defer conn.Close()
