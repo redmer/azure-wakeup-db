@@ -13,6 +13,16 @@ The error you might see is error `40613` or something like:
 docker run --rm ghcr.io/redmer/azure-wakeup-db --dsn <dsn>
 ```
 
+Example output:
+
+```
+$ docker run --rm ghcr.io/redmer/azure-wake-up-db --server=hello-world.database.windows.net --database=general --user=kenobi --password='Ben123'
+2025/04/07 17:12:20 attempt 1/15
+2025/04/07 17:12:36 attempt 2/15 after 25s delay
+2025/04/07 17:13:13 attempt 3/15 after 25s delay
+2025/04/07 17:13:40 Connection successful: database is awake.
+```
+
 Options:
 
 - `--dsn`: The connection string to the Azure DB. Can be specified in many formats:
@@ -51,3 +61,4 @@ Options:
 - **What would be a good PR?**
   - Other ways to authenticate
   - Combine DSN and named options.
+  - The actual delays aren't 25 seconds, but they're printed as such.
