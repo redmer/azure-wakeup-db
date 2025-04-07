@@ -16,27 +16,16 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 )
 
-// Get environment variable by name. If it does not exist, return default value.
-func getEnv(key, defaultValue string) string {
+// Get environment variable by name. If it does not exist, return a default value.
+func GetEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
 	return defaultValue
 }
 
-const (
-	WAKEUP_USER     string = "WAKEUP_USER"
-	WAKEUP_PASSWORD string = "WAKEUP_PASSWORD"
-	WAKEUP_SERVER   string = "WAKEUP_SERVER"
-	WAKEUP_INSTANCE string = "WAKEUP_INSTANCE"
-	WAKEUP_DATABASE string = "WAKEUP_DATABASE"
-	WAKEUP_PORT     string = "WAKEUP_PORT"
-	WAKEUP_DSN      string = "WAKEUP_DSN"
-)
-
 // Build connection string for Azure SQL Database from environment variables.
-// Uses: WAKEUP_DSN, WAKEUP_APP_NAME, WAKEUP_DATABASE, WAKEUP_SERVER, WAKEUP_PORT, WAKEUP_USER, WAKEUP_PASSWORD, WAKEUP_INSTANCE
-func buildConnectionString(
+func BuildDSN(
 	server string,
 	port string,
 	instance string,
@@ -77,23 +66,24 @@ func buildConnectionString(
 	return res.String()
 }
 
-// isThrottlingError checks if the error is Azure SQL throttling error (40613)
+// If error provided is an Azure SQL throttling error (40613), also caused by paused instances.
 func isThrottlingError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// Check if the error contains "40613"
 	return strings.Contains(err.Error(), "40613")
 }
 
+// Add 10% timing jitter to a time.Duration
 func addJitter(delay time.Duration) time.Duration {
-	jitter := time.Duration(rand.Float64() * float64(delay) * 0.1) // 10% jitter
+	jitter := time.Duration(rand.Float64() * float64(delay) * 0.1)
 	return delay + jitter
 }
 
-// Continuously retry to connect until the maximum number of retries is reached.
-func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, error) {
+// With pauses, Retry to connect until the maximum number of retries is reached.
+func ThrottledRetry[T any](ctx context.Context, connectFunc func() (T, error)) (T, error) {
+	var zeroValue T
 	maxRetries := 15
 	retryDelay := time.Duration(25) * time.Second
 	var lastErr error
@@ -101,28 +91,28 @@ func retryWithThrottlingError(ctx context.Context, connString string) (*sql.DB, 
 	for attempt := range maxRetries {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return zeroValue, ctx.Err()
 		default:
 			if attempt > 0 {
-				log.Printf("Attempt %d/%d after %v delay", attempt+1, maxRetries, retryDelay)
+				log.Printf("attempt %d/%d after %v delay", attempt+1, maxRetries, retryDelay)
 				time.Sleep(addJitter(retryDelay))
 			} else {
-				log.Printf("Attempt 1/%d", maxRetries)
+				log.Printf("attempt 1/%d", maxRetries)
 			}
 
-			db, err := ConnectAndPing(connString)
+			result, err := connectFunc()
 			if err == nil { // success
-				return db, nil
+				return result, nil
 			}
 
 			lastErr = err
 			if !isThrottlingError(err) { // not throttling error
-				return nil, err
+				return zeroValue, err
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("failed to connect after %d attempts: %v", maxRetries, lastErr)
+	return zeroValue, fmt.Errorf("failed after %d attempts: %v", maxRetries, lastErr)
 }
 
 // Return a working sql.DB connection based on a connection string
@@ -150,11 +140,21 @@ func ConnectAndPing(connString string) (*sql.DB, error) {
 	return db, nil
 }
 
+const (
+	WAKEUP_USER     string = "WAKEUP_USER"
+	WAKEUP_PASSWORD string = "WAKEUP_PASSWORD"
+	WAKEUP_SERVER   string = "WAKEUP_SERVER"
+	WAKEUP_INSTANCE string = "WAKEUP_INSTANCE"
+	WAKEUP_DATABASE string = "WAKEUP_DATABASE"
+	WAKEUP_PORT     string = "WAKEUP_PORT"
+	WAKEUP_DSN      string = "WAKEUP_DSN"
+)
+
 // Ensure a connection with an Azure DB that may be auto-paused.
 // Wait and try for 5 minutes to wake it up.
 func main() {
 	server := flag.String("server", os.Getenv(WAKEUP_SERVER), "Database server")
-	port := flag.String("port", getEnv(WAKEUP_PORT, "1433"), "Database port")
+	port := flag.String("port", GetEnv(WAKEUP_PORT, "1433"), "Database port")
 	instance := flag.String("instance", os.Getenv(WAKEUP_INSTANCE), "SQL Server instance name")
 	database := flag.String("database", os.Getenv(WAKEUP_DATABASE), "Database name")
 	user := flag.String("user", os.Getenv(WAKEUP_USER), "Database user")
@@ -168,10 +168,8 @@ func main() {
 	if *help {
 		why := `Connect to awaken a paused Azure DB.
 
-  Provide connection details or environment variables to connect. For all options,
-  there is a corresponding environment variable named WAKEUP_<option_name>.
-
-	--server=myserver -> WAKEUP_SERVER=myserver`
+  Provide connection details to connect. All environment variable name start with WAKEUP_<option_name>.
+  Command line options passed have higher priority. The DSN option always overrides any and all other values.`
 
 		fmt.Println(why)
 		flag.Usage()
@@ -182,7 +180,7 @@ func main() {
 	connectionString := *dsn
 	// If no DSN provided, try to build from environment variables
 	if connectionString == "" {
-		connectionString = buildConnectionString(*server, *port, *instance, *database, *user, *password, *dsn)
+		connectionString = BuildDSN(*server, *port, *instance, *database, *user, *password, *dsn)
 	}
 
 	if *verbose {
@@ -197,11 +195,14 @@ func main() {
 	defer cancel()
 
 	// Actually connect to the database
-	conn, err := retryWithThrottlingError(ctx, connectionString)
+	conn, err := ThrottledRetry(ctx,
+		func() (*sql.DB, error) {
+			return ConnectAndPing(connectionString)
+		})
 	if err != nil {
-		log.Fatalf("%v\n", err)
+		log.Fatalln(err)
 	}
 	defer conn.Close()
 
-	fmt.Println("Connection successful: database is awake.")
+	log.Println("Connection successful: database is awake.")
 }
