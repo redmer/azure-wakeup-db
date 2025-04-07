@@ -1,6 +1,6 @@
-# azure-wake-up-db
+# azure-wakeup-db
 
-If your Azure DB returns 40613 because it was paused, this GitHub action re-awakes it. Useful for workflows or ETL's that would otherwise quickly fail.
+If your Azure DB returns 40613 because it was paused, this GitHub action re-awakens it. Useful for workflows or ETL's that would otherwise quickly fail.
 
 ## Usage
 
@@ -16,13 +16,13 @@ Options:
   - `odbc:server=localhost;user id=sa;password={foo;bar}`
 - Or use the following specific options. They _will not_ be combined with DSN.
   - `--server`: Database host
-  - `--database`: Database name
   - `--port`: Database port (default: 1433)
   - `--instance`: SQL Server instance name (optional)
+  - `--database`: Database name
   - `--user`: Database username
   - `--password`: Database password
 
-  All variants described at [microsoft/go-mssqldb].
+  All variants of the connection string described at [microsoft/go-mssqldb].
   Kerberos or EntraID is not supported.
 
 - Environment variables:
