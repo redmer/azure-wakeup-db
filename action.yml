@@ -21,7 +21,7 @@ inputs:
 
 runs:
   using: docker
-  image: ghcr.io/redmer/azure-wakeup-db
+  image: docker://ghcr.io/redmer/azure-wakeup-db
   env:
     WAKEUP_SERVER: ${{ inputs.server }}
     WAKEUP_PORT: ${{ inputs.port }}
